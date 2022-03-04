@@ -1,1 +1,0 @@
-Twitter bot that tweets a random still from a movie with a random caption
