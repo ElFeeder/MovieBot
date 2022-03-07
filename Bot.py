@@ -103,6 +103,10 @@ def IterateComments(iterateThis):
 def CheckPosts(subredditIterator):
     try:
         for sub in subredditIterator:
+            # Add this sub to the list of already searched, so that no one searches it again in this cycle
+            with open("SubredditsSearched.txt", 'a') as file:
+                file.write(sub.id + '\n')
+                
             print(f"\nChecking r/{sub}")
             
             print("Checking hot")
@@ -170,7 +174,10 @@ while True:
     CheckPosts(reddit.subreddits.search("up"))
     CheckPosts(reddit.subreddits.search("movie"))
         
-    
+    # Remove subreddits from the SubredditsSearched.txt to start a new cycle
+    with open("SubredditsSearched.txt", 'w') as file:
+        file.write('')
+        
     time.sleep(60)   # Wait and then check again     
     print("Checking again") 
                     
