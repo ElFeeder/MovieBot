@@ -4,8 +4,6 @@ import random
 import time
 import datetime
 
-#from simple_image_download import simple_image_download as sid
-#from PIL import Image
 from dotenv import load_dotenv
 
 
@@ -101,45 +99,14 @@ def IterateComments(iterateThis):
             CheckForKeyword(comment)
             IterateComments(comment.refresh().replies)
         
-                    
-# Get environment variables
-load_dotenv(".env")
-clientID = os.environ.get("CLIENT_ID")
-secret = os.environ.get("SECRET")
-userAgent = os.environ.get("USER_AGENT")
-username = os.environ.get("USERNAME")
-password = os.environ.get("PASSWORD")
-
-# Log into Reddit, we're going to reply to comments in several subreddits
-reddit = praw.Reddit(client_id = clientID, client_secret = secret, user_agent = userAgent, username = username, password = password)
-subreddit = []  # List containing a subreddit and how many posts to check
-
-# Choose subreddits (this can be better, maybe check all subreddits and retrieve those with keywords, would be better)
-# TODO
-subreddit.append((reddit.subreddit("Shrekmemes"), 15))
-subreddit.append((reddit.subreddit("Shrek"), 15))
-subreddit.append((reddit.subreddit("Brogres"), 15))
-subreddit.append((reddit.subreddit("beemovie"), 15))
-subreddit.append((reddit.subreddit("BeeMovieScriptMath"), 15))
-subreddit.append((reddit.subreddit("BeeMovieScript"), 15))
-subreddit.append((reddit.subreddit("BeeMovieMemes"), 15))
-subreddit.append((reddit.subreddit("shittymoviedetails"), 10))
-subreddit.append((reddit.subreddit("movies"), 10))
-subreddit.append((reddit.subreddit("badMovies"), 10))
-subreddit.append((reddit.subreddit("moviescirclejerk"), 10))
-subreddit.append((reddit.subreddit("memes"), 5))
-subreddit.append((reddit.subreddit("dankmemes"), 5))
-
-print("Logged in")
-
-# Main program loop
-while True:
+                   
+def CheckPosts(subredditIterator):
     try:
-        for sub in subreddit:
-            print(f"\nChecking r/{sub[0]}")
+        for sub in subredditIterator:
+            print(f"\nChecking r/{sub}")
             
             print("Checking hot")
-            for submission in sub[0].hot(limit = sub[1]):    # Last hot posts in each subreddit
+            for submission in sub.hot(limit = 10):    # Last 10 hot posts in each subreddit
                 # Check if this thread had a problem in the past (or too old)
                 problem = False
                 with open("AlreadyReplied.txt", 'r') as file:
@@ -168,17 +135,41 @@ while True:
                 IterateComments(submission.comments)
                 
             print("Checking new")
-            for submission in sub[0].new(limit = sub[1]):    # Last new posts in each subreddit
+            for submission in sub.new(limit = 10):    # Last 10 new posts in each subreddit
                 print("Checking submission\t", submission.title)
                 
                 # submission.comments returns a CommentForest
                 submission.comments.replace_more()
-                IterateComments(submission.comments)
-                        
+                IterateComments(submission.comments) 
+                
     except praw.exceptions.RedditAPIException:
         # This thread has some problem (locked, probably), so ignore it in the future
         with open("AlreadyReplied.txt", 'a') as file:
             file.write(submission.id + '\n')
+          
+            
+# Get environment variables
+load_dotenv(".env")
+clientID = os.environ.get("CLIENT_ID")
+secret = os.environ.get("SECRET")
+userAgent = os.environ.get("USER_AGENT")
+username = os.environ.get("USERNAME")
+password = os.environ.get("PASSWORD")
+
+# Log into Reddit, we're going to reply to comments in several subreddits
+reddit = praw.Reddit(client_id = clientID, client_secret = secret, user_agent = userAgent, username = username, password = password)
+
+print("Logged in")
+
+# Main program loop
+while True:
+    # Search subreddits related to the movies that we want to answer to
+    CheckPosts(reddit.subreddits.search("shrek"))
+    CheckPosts(reddit.subreddits.search("ogre"))
+    CheckPosts(reddit.subreddits.search("bee"))
+    CheckPosts(reddit.subreddits.search("up"))
+    CheckPosts(reddit.subreddits.search("movie"))
+        
     
     time.sleep(60)   # Wait and then check again     
     print("Checking again") 
