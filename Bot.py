@@ -11,20 +11,21 @@ from dotenv import load_dotenv
 def CheckForKeyword(comment):
     try:
         commentBody = comment.body.lower()
-        
-        if(commentBody.find(" shrek ") != -1 or commentBody.find(" up ") != -1 or commentBody.find(" bee ") != -1):
+
+        if(commentBody.find(" shrek ") != -1 or commentBody.find(" nemo ") != -1 or commentBody.find(" bee ") != -1 or commentBody.find(" incredible ") != -1
+            or commentBody.find(" The Incredibles ") != -1):
             # Check if this comment was already replied to by the bot
             alreadyReplied = False
-            
+
             with open("AlreadyReplied.txt", 'r') as file:
                 lines = file.readlines()
-                
+
                 for line in lines:
                     if(line.find(comment.id) != -1):
-                        # Already replied to this one 
+                        # Already replied to this one
                         alreadyReplied = True
                         break
-                
+
             if alreadyReplied:
                 print("Already replied to this comment")
                 return
@@ -38,119 +39,153 @@ def CheckForKeyword(comment):
                 with open("ShrekScript.txt", 'r') as file:
                     lines = file.readlines()
                     numLines = len(lines)
-                    
+
                     # Find a suitable line
                     while True:
                         randomLine = random.randint(0, numLines - 1)
-                        
+
                         line = lines[randomLine]
-                        if(line == '\n' or line[-2] == ':'):            # Particular tratement
+                        if(line == '\n' or line[-2] == ':'):            # Particular treatement
                             continue
                         else:
                             break
-            if(commentBody.find(" bee ") != -1):
+
+            elif(commentBody.find(" bee ") != -1):
                 movie = "Bee Movie"
                 with open("BeeScript.txt", 'r') as file:
                     lines = file.readlines()
                     numLines = len(lines)
-                    
+
                     # Find a suitable line
                     while True:
                         randomLine = random.randint(0, numLines - 1)
-                        
+
                         line = lines[randomLine]
-                        if(line == '\n' or line[-2] == ':'):            # Particular tratement
+                        if(line == '\n' or line[-2] == ':'):            # Particular treatement
                             continue
                         else:
                             break
-            if(commentBody.find(" up ") != -1):
-                movie = "Up!"
-                with open("UpScript.txt", 'r') as file:
+
+            elif(commentBody.find(" nemo ") != -1):
+                movie = "Finding Nemo"
+                with open("NemoScript.txt", 'r') as file:
                     lines = file.readlines()
                     numLines = len(lines)
-                    
+
                     # Find a suitable line
                     while True:
                         randomLine = random.randint(0, numLines - 1)
-                        
-                        line = lines[randomLine].lstrip()    # Remove tralling and leading spaces
-                        if(line == '\n' or line[-2] == ')'):            # Particular tratement
+
+                        line = lines[randomLine]
+                        if(line == '\n'):            # Particular treatement
                             continue
                         else:
-                            # This script has lines divided by '\n'. Check for this
-                            check = 1
-                            while(lines[randomLine + check] != '\n'):           # Check if next has text
-                                line = line[:-1] + ' ' + lines[randomLine + check].lstrip()
-                                check += 1
-                
+                            if(line.find(':') != -1):
+                                line = line[line.find(':') + 2 : ]
+                            break
+
+            elif(commentBody.find(" incredible ") != -1 or commentBody.find(" The Incredibles ") != -1):
+                movie = "The Incredibles"
+                with open("IncrediblesScript.txt", 'r') as file:
+                    lines = file.readlines()
+                    numLines = len(lines)
+
+                    # Find a suitable line
+                    while True:
+                        randomLine = random.randint(0, numLines - 1)
+
+                        line = lines[randomLine]
+                        if(line == '\n'):            # Particular treatement
+                            continue
+                        else:
+                            if(line.find(':') != -1):
+                                line = line[line.find(':') + 2 : ]
+                            break
+
             # Answer comment with line
             answer = f"From the movie {movie}:\t" + line
             print("Replying to\t", commentBody, "\nwith\t", answer)
             comment.reply(answer)
     except: # Ignore exceptions
         pass
-                    
-        
+
+
 def IterateComments(iterateThis):
     # Each comment found can be an actual comment or a MoreComments
     for comment in iterateThis:
         # Check if it's not mine
-        if(comment.author != "RandomMovieQuoteBot_"):
-            CheckForKeyword(comment)
-            IterateComments(comment.refresh().replies)
-        
-                   
+        try:
+            if(comment.author != "RandomMovieQuoteBot_"):
+                CheckForKeyword(comment)
+                IterateComments(comment.refresh().replies)
+        except: # For some reason, iterateThis can still have MoreComments
+            pass
+
+
 def CheckPosts(subredditIterator):
     try:
         for sub in subredditIterator:
+            # Check if it was searched recently
+            alreadySearched = False
+            with open("SubredditsSearched.txt", 'r') as file:
+                lines = file.readlines()
+
+                for line in lines:
+                    if(line.find(sub.id) != -1):
+                        alreadySearched = True
+                        break
+
+            if alreadySearched:
+                continue
+
             # Add this sub to the list of already searched, so that no one searches it again in this cycle
             with open("SubredditsSearched.txt", 'a') as file:
                 file.write(sub.id + '\n')
-                
+
             print(f"\nChecking r/{sub}")
-            
+
             print("Checking hot")
             for submission in sub.hot(limit = 10):    # Last 10 hot posts in each subreddit
                 # Check if this thread had a problem in the past (or too old)
                 problem = False
                 with open("AlreadyReplied.txt", 'r') as file:
                     lines = file.readlines()
-                    
+
                     for line in lines:
                         if(line.find(submission.id) != -1):
                             # Yes, it had a problem
                             problem = True
                             break
-                
+
                 if problem:
                     continue
-                
+
                 # Add it to the blacklist it they're older than x time
                 timeOfPost = datetime.datetime.fromtimestamp(submission.created)
                 now = datetime.datetime.now()
                 if((now - timeOfPost).total_seconds() > 60 * 60 * 24 * 7):    # If longer than a week, never check it again
                     with open("AlreadyReplied.txt", 'a') as file:
                         file.write(submission.id + '\n')
-                        
+
                 print("Checking submission\t", submission.title)
-                
+
                 # submission.comments returns a CommentForest
                 submission.comments.replace_more()
                 IterateComments(submission.comments)
-                
+
             print("Checking new")
             for submission in sub.new(limit = 10):    # Last 10 new posts in each subreddit
                 print("Checking submission\t", submission.title)
-                
+
                 # submission.comments returns a CommentForest
                 submission.comments.replace_more()
-                IterateComments(submission.comments) 
-                
+                IterateComments(submission.comments)
+
     except praw.exceptions.RedditAPIException:
         # This thread has some problem (locked, probably), so ignore it in the future
         with open("AlreadyReplied.txt", 'a') as file:
             file.write(submission.id + '\n')
-          
+
             
 # Get environment variables
 load_dotenv(".env")
@@ -171,27 +206,29 @@ while True:
     CheckPosts(reddit.subreddits.search("shrek"))
     CheckPosts(reddit.subreddits.search("ogre"))
     CheckPosts(reddit.subreddits.search("bee"))
-    CheckPosts(reddit.subreddits.search("up"))
     CheckPosts(reddit.subreddits.search("movie"))
-        
+    CheckPosts(reddit.subreddits.search("nemo"))
+    CheckPosts(reddit.subreddits.search("incredibles"))
+    CheckPosts(reddit.subreddits.search("fish"))
+
     # Remove subreddits from the SubredditsSearched.txt to start a new cycle
     with open("SubredditsSearched.txt", 'w') as file:
-        file.write('')
-        
-    time.sleep(60)   # Wait and then check again     
-    print("Checking again") 
-                    
-                    
-                    
-                    
-                    
-                    
+        pass
+
+    time.sleep(60)   # Wait and then check again
+    print("Checking again")
+
+
+
+
+
+
 # Apprently you can't reply to posts in reddit with images
 # So this bot will only answer with a random line from the script
 # Anyway, this is the code for getting an image, for future me (possibly)
 '''
 # Got a hit, fetch images with user given query
-response = sid.simple_image_download() 
+response = sid.simple_image_download()
 
 # Get the images (limit is 10 because the first ones might not have a known face in them)
 response.download(keywords = comment.body, limit = 10)
@@ -216,7 +253,7 @@ while not found:
             break
         else:
             iter += 1
-            
+
 if skipComment:
     continue
 '''
