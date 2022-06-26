@@ -72,7 +72,8 @@ def CheckForKeyword(comment, sub):
                         randomLine = random.randint(0, numLines - 1)
 
                         line = lines[randomLine]
-                        if(line == '\n' or line[-2] == ':' or line[-2] == ']'):            # Particular treatement
+                        if(line == '\n' or line[-2] == ':'
+                           or line[-2] == ')' or line[-2] == '}'):            # Particular treatement
                             continue
                         else:
                             break
@@ -88,7 +89,8 @@ def CheckForKeyword(comment, sub):
                         randomLine = random.randint(0, numLines - 1)
 
                         line = lines[randomLine]
-                        if(line == '\n' or line[-2] == ']'):            # Particular treatement
+                        if(line == '\n' or line[-2] == ']'
+                           or line[-2] == ')'):            # Particular treatement
                             continue
                         else:
                             line = line[line.find(':') + 2 : ]
