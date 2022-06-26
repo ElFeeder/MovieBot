@@ -8,12 +8,22 @@ from dotenv import load_dotenv
 
 
 
-def CheckForKeyword(comment):
+def CheckForKeyword(comment, sub):
     try:
         commentBody = comment.body.lower()
-
-        if(commentBody.find(" shrek ") != -1 or commentBody.find(" nemo ") != -1 or commentBody.find(" bee ") != -1 or commentBody.find(" incredible ") != -1
-            or commentBody.find(" The Incredibles ") != -1):
+        
+        # Check if the bot is blocked in this subreddit
+        if(commentBody.find("i am a bot") != -1):
+            # If it is, add this subreddit to the list of already searched and move on
+            print("Adding subreddit to already searched")
+            with open("SubredditsSearched.txt", 'a') as file:
+                file.write(sub.id + '\n')
+            return
+            
+            
+        if(commentBody.find(" shrek ") != -1 or commentBody.find(" nemo ") != -1
+           or commentBody.find(" bee ") != -1 or commentBody.find(" incredible ") != -1
+           or commentBody.find(" car ") != -1 or commentBody.find(" cars ") != -1):
             # Check if this comment was already replied to by the bot
             alreadyReplied = False
 
@@ -24,19 +34,18 @@ def CheckForKeyword(comment):
                     if(line.find(comment.id) != -1):
                         # Already replied to this one
                         alreadyReplied = True
+                        print("Already replied to this comment")
                         break
 
-            if alreadyReplied:
-                print("Already replied to this comment")
-                return
-            else:   # If not replied, add it to the file and answer
+            # If not replied, add it to the file and reply
+            if not alreadyReplied: 
                 with open("AlreadyReplied.txt", 'a') as file:
                     file.write(comment.id + '\n')
 
             # Get random quote from the said movie
             if(commentBody.find(" shrek ") != -1):
                 movie = "Shrek"
-                with open("ShrekScript.txt", 'r') as file:
+                with open("Scripts/ShrekScript.txt", 'r') as file:
                     lines = file.readlines()
                     numLines = len(lines)
 
@@ -45,14 +54,16 @@ def CheckForKeyword(comment):
                         randomLine = random.randint(0, numLines - 1)
 
                         line = lines[randomLine]
-                        if(line == '\n' or line[-2] == ':'):            # Particular treatement
+                        if(line == '\n' or line[-2] == ':' or line[-2] == ']'):            # Particular treatement
                             continue
                         else:
+                            if(line.find(':') != -1):
+                                line = line[line.find(':') + 2 : ]
                             break
 
             elif(commentBody.find(" bee ") != -1):
                 movie = "Bee Movie"
-                with open("BeeScript.txt", 'r') as file:
+                with open("Scripts/BeeScript.txt", 'r') as file:
                     lines = file.readlines()
                     numLines = len(lines)
 
@@ -61,14 +72,14 @@ def CheckForKeyword(comment):
                         randomLine = random.randint(0, numLines - 1)
 
                         line = lines[randomLine]
-                        if(line == '\n' or line[-2] == ':'):            # Particular treatement
+                        if(line == '\n' or line[-2] == ':' or line[-2] == ']'):            # Particular treatement
                             continue
                         else:
                             break
 
             elif(commentBody.find(" nemo ") != -1):
                 movie = "Finding Nemo"
-                with open("NemoScript.txt", 'r') as file:
+                with open("Scripts/NemoScript.txt", 'r') as file:
                     lines = file.readlines()
                     numLines = len(lines)
 
@@ -77,16 +88,15 @@ def CheckForKeyword(comment):
                         randomLine = random.randint(0, numLines - 1)
 
                         line = lines[randomLine]
-                        if(line == '\n'):            # Particular treatement
+                        if(line == '\n' or line[-2] == ']'):            # Particular treatement
                             continue
                         else:
-                            if(line.find(':') != -1):
-                                line = line[line.find(':') + 2 : ]
+                            line = line[line.find(':') + 2 : ]
                             break
 
-            elif(commentBody.find(" incredible ") != -1 or commentBody.find(" The Incredibles ") != -1):
+            elif(commentBody.find(" incredible ") != -1):
                 movie = "The Incredibles"
-                with open("IncrediblesScript.txt", 'r') as file:
+                with open("Scripts/IncrediblesScript.txt", 'r') as file:
                     lines = file.readlines()
                     numLines = len(lines)
 
@@ -95,29 +105,45 @@ def CheckForKeyword(comment):
                         randomLine = random.randint(0, numLines - 1)
 
                         line = lines[randomLine]
-                        if(line == '\n'):            # Particular treatement
+                        if(line == '\n' or line[-2] == ']'):            # Particular treatement
                             continue
                         else:
-                            if(line.find(':') != -1):
-                                line = line[line.find(':') + 2 : ]
+                            line = line[line.find(':') + 2 : ]
+                            break
+            
+            elif(commentBody.find(" car ") != -1 or commentBody.find(" cars ") != -1):
+                movie = "Cars"
+                with open("Scripts/CarsScript.txt", 'r') as file:
+                    lines = file.readlines()
+                    numLines = len(lines)
+
+                    # Find a suitable line
+                    while True:
+                        randomLine = random.randint(0, numLines - 1)
+
+                        line = lines[randomLine]
+                        if(line == '\n' or line[-2] == ']' or line.find(':') == -1):            # Particular treatement
+                            continue
+                        else:
+                            line = line[line.find(':') + 2 : ]
                             break
 
             # Answer comment with line
-            answer = f"From the movie {movie}:\t" + line
+            answer = f"Your random quote from the movie {movie} is:\t" + line
             print("Replying to\t", commentBody, "\nwith\t", answer)
             comment.reply(answer)
     except: # Ignore exceptions
         pass
 
 
-def IterateComments(iterateThis):
+def IterateComments(iterateThis, sub):
     # Each comment found can be an actual comment or a MoreComments
     for comment in iterateThis:
         # Check if it's not mine
         try:
             if(comment.author != "RandomMovieQuoteBot_"):
-                CheckForKeyword(comment)
-                IterateComments(comment.refresh().replies)
+                CheckForKeyword(comment, sub)
+                IterateComments(comment.refresh().replies, sub)
         except: # For some reason, iterateThis can still have MoreComments
             pass
 
@@ -138,7 +164,7 @@ def CheckPosts(subredditIterator):
             if alreadySearched:
                 continue
 
-            # Add this sub to the list of already searched, so that no one searches it again in this cycle
+            # Add this sub to the list of already searched, so that it is not searched again in this cycle
             with open("SubredditsSearched.txt", 'a') as file:
                 file.write(sub.id + '\n')
 
@@ -171,7 +197,7 @@ def CheckPosts(subredditIterator):
 
                 # submission.comments returns a CommentForest
                 submission.comments.replace_more()
-                IterateComments(submission.comments)
+                IterateComments(submission.comments, sub)
 
             print("Checking new")
             for submission in sub.new(limit = 10):    # Last 10 new posts in each subreddit
@@ -179,44 +205,52 @@ def CheckPosts(subredditIterator):
 
                 # submission.comments returns a CommentForest
                 submission.comments.replace_more()
-                IterateComments(submission.comments)
+                IterateComments(submission.comments, sub)
 
     except praw.exceptions.RedditAPIException:
         # This thread has some problem (locked, probably), so ignore it in the future
         with open("AlreadyReplied.txt", 'a') as file:
             file.write(submission.id + '\n')
 
-            
+
 # Get environment variables
 load_dotenv(".env")
 clientID = os.environ.get("CLIENT_ID")
 secret = os.environ.get("SECRET")
 userAgent = os.environ.get("USER_AGENT")
-username = os.environ.get("USERNAME")
+username = os.environ.get("REDDIT_USERNAME")
 password = os.environ.get("PASSWORD")
 
-# Log into Reddit, we're going to reply to comments in several subreddits
-reddit = praw.Reddit(client_id = clientID, client_secret = secret, user_agent = userAgent, username = username, password = password)
+# Log into Reddit
+reddit = praw.Reddit(client_id = clientID, client_secret = secret,
+                     user_agent = userAgent, username = username,
+                     password = password)
 
 print("Logged in")
 
 # Main program loop
 while True:
-    # Search subreddits related to the movies that we want to answer to
+    # Search subreddits related to the movies that the program replies to
     CheckPosts(reddit.subreddits.search("shrek"))
     CheckPosts(reddit.subreddits.search("ogre"))
     CheckPosts(reddit.subreddits.search("bee"))
     CheckPosts(reddit.subreddits.search("movie"))
+    CheckPosts(reddit.subreddits.search("film"))
+    CheckPosts(reddit.subreddits.search("cinema"))
     CheckPosts(reddit.subreddits.search("nemo"))
-    CheckPosts(reddit.subreddits.search("incredibles"))
+    CheckPosts(reddit.subreddits.search("incredible"))
     CheckPosts(reddit.subreddits.search("fish"))
+    CheckPosts(reddit.subreddits.search("animal"))
+    CheckPosts(reddit.subreddits.search("car"))
+    CheckPosts(reddit.subreddits.search("animation"))
 
-    # Remove subreddits from the SubredditsSearched.txt to start a new cycle
+    # Remove subreddits from SubredditsSearched.txt to start a new cycle
     with open("SubredditsSearched.txt", 'w') as file:
         pass
 
-    time.sleep(60)   # Wait and then check again
-    print("Checking again")
+    # Wait and then check again
+    time.sleep(60)   
+    print("New cycle")
 
 
 
