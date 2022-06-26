@@ -1,145 +1,259 @@
-import face_recognition
 import os
-import cv2
+import praw
+import random
+import time
+import datetime
 
-from simple_image_download import simple_image_download as sid
-
-
-# First fetch the images with user given query
-response = sid.simple_image_download() 
-searchQuery = 'Shrek'
-
-response.download(keywords = searchQuery, limit = 10, extensions = {'.jpg', '.png', '.ico', '.gif', '.jpeg'})
-
-DIR_KNOWN = "Characters"     # Directories where the faces are
-DIR_UNKNOWN = "simple_images"
+from dotenv import load_dotenv
 
 
 
-tolerance = 0.05         # Tolerance of a match
+def CheckForKeyword(comment):
+    try:
+        commentBody = comment.body.lower()
 
-frameThickness = 2      # These two are to draw rectangles around the faces
-fontThickness = 2
+        if(commentBody.find(" shrek ") != -1 or commentBody.find(" nemo ") != -1 or commentBody.find(" bee ") != -1 or commentBody.find(" incredible ") != -1
+            or commentBody.find(" The Incredibles ") != -1):
+            # Check if this comment was already replied to by the bot
+            alreadyReplied = False
 
-model = "cnn"           # What NN we'll be using
+            with open("AlreadyReplied.txt", 'r') as file:
+                lines = file.readlines()
 
-knownFaces = []                         # List of all the different faces that we know
-knownNames = []                         # Give a name to each face
-facesNumber = []                        # How many images of each face
-diffFaces = len(os.listdir(DIR_KNOWN))  # How many different faces
+                for line in lines:
+                    if(line.find(comment.id) != -1):
+                        # Already replied to this one
+                        alreadyReplied = True
+                        break
+
+            if alreadyReplied:
+                print("Already replied to this comment")
+                return
+            else:   # If not replied, add it to the file and answer
+                with open("AlreadyReplied.txt", 'a') as file:
+                    file.write(comment.id + '\n')
+
+            # Get random quote from the said movie
+            if(commentBody.find(" shrek ") != -1):
+                movie = "Shrek"
+                with open("ShrekScript.txt", 'r') as file:
+                    lines = file.readlines()
+                    numLines = len(lines)
+
+                    # Find a suitable line
+                    while True:
+                        randomLine = random.randint(0, numLines - 1)
+
+                        line = lines[randomLine]
+                        if(line == '\n' or line[-2] == ':'):            # Particular treatement
+                            continue
+                        else:
+                            break
+
+            elif(commentBody.find(" bee ") != -1):
+                movie = "Bee Movie"
+                with open("BeeScript.txt", 'r') as file:
+                    lines = file.readlines()
+                    numLines = len(lines)
+
+                    # Find a suitable line
+                    while True:
+                        randomLine = random.randint(0, numLines - 1)
+
+                        line = lines[randomLine]
+                        if(line == '\n' or line[-2] == ':'):            # Particular treatement
+                            continue
+                        else:
+                            break
+
+            elif(commentBody.find(" nemo ") != -1):
+                movie = "Finding Nemo"
+                with open("NemoScript.txt", 'r') as file:
+                    lines = file.readlines()
+                    numLines = len(lines)
+
+                    # Find a suitable line
+                    while True:
+                        randomLine = random.randint(0, numLines - 1)
+
+                        line = lines[randomLine]
+                        if(line == '\n'):            # Particular treatement
+                            continue
+                        else:
+                            if(line.find(':') != -1):
+                                line = line[line.find(':') + 2 : ]
+                            break
+
+            elif(commentBody.find(" incredible ") != -1 or commentBody.find(" The Incredibles ") != -1):
+                movie = "The Incredibles"
+                with open("IncrediblesScript.txt", 'r') as file:
+                    lines = file.readlines()
+                    numLines = len(lines)
+
+                    # Find a suitable line
+                    while True:
+                        randomLine = random.randint(0, numLines - 1)
+
+                        line = lines[randomLine]
+                        if(line == '\n'):            # Particular treatement
+                            continue
+                        else:
+                            if(line.find(':') != -1):
+                                line = line[line.find(':') + 2 : ]
+                            break
+
+            # Answer comment with line
+            answer = f"From the movie {movie}:\t" + line
+            print("Replying to\t", commentBody, "\nwith\t", answer)
+            comment.reply(answer)
+    except: # Ignore exceptions
+        pass
 
 
-print("Loading known faces...")
-
-for name in os.listdir(DIR_KNOWN):                      # List of all the names in the Known directory
-    print("")
-    print("Checking " + name + " images")
-    print("")
-    total = 0
-
-    for filename in os.listdir(f"{DIR_KNOWN}/{name}"):  # List all files there
-        print("Checking " + filename)
-
-        # Load an image
-        image = face_recognition.load_image_file(f"{DIR_KNOWN}/{name}/{filename}")
-        
-        # If we found exactly one face, use it
-        if(len(face_recognition.face_encodings(image)) == 1):
-            encoding = face_recognition.face_encodings(image)
-
-            # Add the face and the name to the lists
-            knownFaces.append(encoding)
-            knownNames.append(name)
-            total += 1
-
-        elif(len(face_recognition.face_encodings(image)) > 1):
-            print(" File " + filename + " had more than one face")
-
-        elif(len(face_recognition.face_encodings(image)) < 1):
-            print(" File " + filename + " had no faces")
-
-    facesNumber.append(total)
+def IterateComments(iterateThis):
+    # Each comment found can be an actual comment or a MoreComments
+    for comment in iterateThis:
+        # Check if it's not mine
+        try:
+            if(comment.author != "RandomMovieQuoteBot_"):
+                CheckForKeyword(comment)
+                IterateComments(comment.refresh().replies)
+        except: # For some reason, iterateThis can still have MoreComments
+            pass
 
 
-print("")
-print("Processing unknown faces...")
+def CheckPosts(subredditIterator):
+    try:
+        for sub in subredditIterator:
+            # Check if it was searched recently
+            alreadySearched = False
+            with open("SubredditsSearched.txt", 'r') as file:
+                lines = file.readlines()
 
-for filename in os.listdir(DIR_UNKNOWN):
-    print("Checking " + filename)
-    image = face_recognition.load_image_file(f"{DIR_UNKNOWN}/{filename}")
+                for line in lines:
+                    if(line.find(sub.id) != -1):
+                        alreadySearched = True
+                        break
 
-    # Find every face in each given image and encode each one
-    locations = face_recognition.face_locations(image, model = model)
-    encodings = face_recognition.face_encodings(image, locations)
+            if alreadySearched:
+                continue
 
-    # Make it workable by CV2
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            # Add this sub to the list of already searched, so that no one searches it again in this cycle
+            with open("SubredditsSearched.txt", 'a') as file:
+                file.write(sub.id + '\n')
 
-    # For each encoding that we have, compare against encodings of known faces
-    for faceEncoding, faceLocation in zip(encodings, locations):
-        results = face_recognition.compare_faces(knownFaces, faceEncoding, tolerance)
-        finalResults = []
+            print(f"\nChecking r/{sub}")
 
-        # If we have a match, the associated name will be in the same position as the face
-        # was in knownFaces. We'll have to handle the array "results" in a way that we can
-        # work with (results is an array of arrays)
-        
-        # subdivision is the second layer array
-        for subdivision in results:
-            isMatch = 128               # Each subarray has 128 booleans
+            print("Checking hot")
+            for submission in sub.hot(limit = 10):    # Last 10 hot posts in each subreddit
+                # Check if this thread had a problem in the past (or too old)
+                problem = False
+                with open("AlreadyReplied.txt", 'r') as file:
+                    lines = file.readlines()
 
-            # result is the third layer
-            for result in subdivision:
-                if result == False:     # Count how many falses
-                    isMatch -= 1
+                    for line in lines:
+                        if(line.find(submission.id) != -1):
+                            # Yes, it had a problem
+                            problem = True
+                            break
 
-            # Create an array which has all the percentages of the encoding vs the known ones
-            finalResults.append((isMatch * 100) / 128)
-             
-        person = 0
-        count = 0
-        past = 0
-        while person < diffFaces:           # For each person
-            number = facesNumber[person]    # How many images of each
+                if problem:
+                    continue
+
+                # Add it to the blacklist it they're older than x time
+                timeOfPost = datetime.datetime.fromtimestamp(submission.created)
+                now = datetime.datetime.now()
+                if((now - timeOfPost).total_seconds() > 60 * 60 * 24 * 7):    # If longer than a week, never check it again
+                    with open("AlreadyReplied.txt", 'a') as file:
+                        file.write(submission.id + '\n')
+
+                print("Checking submission\t", submission.title)
+
+                # submission.comments returns a CommentForest
+                submission.comments.replace_more()
+                IterateComments(submission.comments)
+
+            print("Checking new")
+            for submission in sub.new(limit = 10):    # Last 10 new posts in each subreddit
+                print("Checking submission\t", submission.title)
+
+                # submission.comments returns a CommentForest
+                submission.comments.replace_more()
+                IterateComments(submission.comments)
+
+    except praw.exceptions.RedditAPIException:
+        # This thread has some problem (locked, probably), so ignore it in the future
+        with open("AlreadyReplied.txt", 'a') as file:
+            file.write(submission.id + '\n')
+
             
-            good = 0
-            while count < number + past:        # Only count the images relative to the person in question
-                if (finalResults[count] >= 65): # If it's over 65%, it's good
-                    good += 1
-                count += 1
-            past = count                        # How many images of other people have passed
+# Get environment variables
+load_dotenv(".env")
+clientID = os.environ.get("CLIENT_ID")
+secret = os.environ.get("SECRET")
+userAgent = os.environ.get("USER_AGENT")
+username = os.environ.get("USERNAME")
+password = os.environ.get("PASSWORD")
 
-            # If more than 80% are over 75%, it's a match 
-            if (good > 0.8 * facesNumber[person]):
-                match = knownNames[count - 1]
+# Log into Reddit, we're going to reply to comments in several subreddits
+reddit = praw.Reddit(client_id = clientID, client_secret = secret, user_agent = userAgent, username = username, password = password)
 
-                print("")
-                print("Match found: " + match)
+print("Logged in")
 
-                # Draw a rectangle around the face
-                topLeft = (faceLocation[3], faceLocation[0])
-                bottomRight = (faceLocation[1], faceLocation[2])
+# Main program loop
+while True:
+    # Search subreddits related to the movies that we want to answer to
+    CheckPosts(reddit.subreddits.search("shrek"))
+    CheckPosts(reddit.subreddits.search("ogre"))
+    CheckPosts(reddit.subreddits.search("bee"))
+    CheckPosts(reddit.subreddits.search("movie"))
+    CheckPosts(reddit.subreddits.search("nemo"))
+    CheckPosts(reddit.subreddits.search("incredibles"))
+    CheckPosts(reddit.subreddits.search("fish"))
 
-                # Have a specific color for each name
-                color = [(ord(c.lower())-97)*8 for c in match[:3]]
+    # Remove subreddits from the SubredditsSearched.txt to start a new cycle
+    with open("SubredditsSearched.txt", 'w') as file:
+        pass
 
-                cv2.rectangle(image, topLeft, bottomRight, color, frameThickness)
-
-                # Nameplate
-                topLeft = (faceLocation[3], faceLocation[2])
-                bottomRight = (faceLocation[1], faceLocation[2] + 22)
-
-                cv2.rectangle(image, topLeft, bottomRight, color, cv2.FILLED)
-                
-                title = str(match) + "  " + str(int(good / facesNumber[person] * 100)) + "%"
-                
-                # Name the rectangle
-                cv2.putText(image, title, (faceLocation[3] + 10, faceLocation[2] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), fontThickness)
+    time.sleep(60)   # Wait and then check again
+    print("Checking again")
 
 
-            person += 1 # Next person
 
-    # Show the image until I press something
-    cv2.imshow(filename, image)
-    cv2.waitKey(0)
-    cv2.destroyWindow(filename)
+
+
+
+# Apprently you can't reply to posts in reddit with images
+# So this bot will only answer with a random line from the script
+# Anyway, this is the code for getting an image, for future me (possibly)
+'''
+# Got a hit, fetch images with user given query
+response = sid.simple_image_download()
+
+# Get the images (limit is 10 because the first ones might not have a known face in them)
+response.download(keywords = comment.body, limit = 10)
+
+# For some reason, we must ignore the first three images
+# Before posting, try to open the image (some don't open for some reason)
+iter = 4
+found = False
+
+while not found:
+    print(f"Trying to open simple_images/{comment.body}/{comment.body}_{iter}.jpg")
+
+    try:
+        image = Image.open(f"simple_images/{comment.body}/{comment.body}_{iter}.jpg")
+        found = True
+        print("Image is suitable, answering comment")
+    except:
+        print("Image is not suitable, checking next")
+        if(iter == 10):
+            print("No suitable image found")
+            skipComment = True
+            break
+        else:
+            iter += 1
+
+if skipComment:
+    continue
+'''
